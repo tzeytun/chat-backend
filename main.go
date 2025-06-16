@@ -51,7 +51,12 @@ func handleTypingBroadcast() {
 }
 
 func getCurrentTime() string {
-	return time.Now().Format("15:04") // sadece saat:dakika
+	loc, err := time.LoadLocation("Europe/Istanbul")
+	if err != nil {
+		loc = time.FixedZone("UTC+3", 3*60*60) // fallback
+	}
+	now := time.Now().In(loc)
+	return now.Format("15:04")
 }
 
 
