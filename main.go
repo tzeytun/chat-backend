@@ -87,19 +87,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	client := &Client{conn: ws}
 
-	defer func() {
-		username := usernames[client]
-		delete(clients, client)
-		delete(usernames, client)
-		broadcastUserList()
-		broadcast <- Message{
-			Type:     "system",
-			Username: username,
-			Content:  fmt.Sprintf("%s sohbetten ayrıldı", username),
-			Time:     getCurrentTime(),
-		}
-		client.conn.Close()
-	}()
 
 	clients[client] = true
 	log.Println("Yeni istemci bağlandı!")
@@ -130,6 +117,24 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
+
+			defer func() {
+		name, ok := usernames[client]
+	if !ok {
+		name = "Bilinmeyen"
+	}
+		delete(clients, client)
+		delete(usernames, client)
+		broadcastUserList()
+		broadcast <- Message{
+			Type:     "system",
+			Username: username,
+			Content:  fmt.Sprintf("%s sohbetten ayrıldı", username),
+			Time:     getCurrentTime(),
+		}
+		client.conn.Close()
+	}()
+
 			usernames[client] = username
 			broadcastUserList()
 			continue
