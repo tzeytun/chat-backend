@@ -129,6 +129,7 @@ broadcast <- newMessage
 func handleUserListBroadcast() {
 	for {
 		userList := <-userListBroadcast
+		log.Println("Güncellenmiş kullanıcı listesi:", userList) // <--- buraya bak
 		for client := range clients {
 			err := client.WriteJSON(struct {
 				Type string   `json:"type"`
