@@ -33,6 +33,8 @@ var broadcast = make(chan Message)
 var usernames = make(map[*Client]string)
 var userListBroadcast = make(chan []string)
 var typingBroadcast = make(chan string)
+var lastMessageTimes = make(map[*Client]time.Time)
+
 
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
@@ -87,9 +89,26 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	}
 	client := &Client{conn: ws}
 
-
 	clients[client] = true
 	log.Println("Yeni istemci bağlandı!")
+
+	defer func() {
+		name, ok := usernames[client]
+		if !ok {
+			name = "Bilinmeyen"
+		}
+		delete(clients, client)
+		delete(usernames, client)
+		delete(lastMessageTimes, client) // 🧹 cooldown temizlik
+		broadcastUserList()
+		broadcast <- Message{
+			Type:     "system",
+			Username: name,
+			Content:  fmt.Sprintf("%s sohbetten ayrıldı", name),
+			Time:     getCurrentTime(),
+		}
+		client.conn.Close()
+	}()
 
 	for {
 		var raw map[string]interface{}
@@ -117,24 +136,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-
-			defer func() {
-		name, ok := usernames[client]
-	if !ok {
-		name = "Bilinmeyen"
-	}
-		delete(clients, client)
-		delete(usernames, client)
-		broadcastUserList()
-		broadcast <- Message{
-			Type:     "system",
-			Username: name,
-			Content:  fmt.Sprintf("%s sohbetten ayrıldı", username),
-			Time:     getCurrentTime(),
-		}
-		client.conn.Close()
-	}()
-
 			usernames[client] = username
 			broadcastUserList()
 			continue
@@ -145,15 +146,32 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			continue
 		}
 
-		newMessage := Message{
-			Type:     "message",
-			Username: username,
-			Content:  content,
-			Time:     getCurrentTime(),
+		if msgType == "message" {
+			now := time.Now()
+			lastTime, exists := lastMessageTimes[client]
+			if exists && now.Sub(lastTime) < time.Second {
+				client.SafeWriteJSON(struct {
+					Type    string `json:"type"`
+					Content string `json:"content"`
+				}{
+					Type:    "error",
+					Content: "Lütfen yavaş yaz, spam algılandı.",
+				})
+				continue
+			}
+			lastMessageTimes[client] = now
+
+			newMessage := Message{
+				Type:     "message",
+				Username: username,
+				Content:  content,
+				Time:     getCurrentTime(),
+			}
+			broadcast <- newMessage
 		}
-		broadcast <- newMessage
 	}
 }
+
 
 func handleUserListBroadcast() {
 	for {
