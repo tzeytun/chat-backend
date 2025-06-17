@@ -178,6 +178,11 @@ func handleMessages() {
 func main() {
 	http.HandleFunc("/ws", handleConnections)
 
+	// PING endpoint'i: cold start önleme, uptime kontrolü
+	http.HandleFunc("/ping", func(w http.ResponseWriter, r *http.Request) {
+		fmt.Fprintln(w, "pong")
+	})
+
 	go handleMessages() // mesaj gönderici goroutine
 	go handleUserListBroadcast() // kullanıcı listesini yöneten goroutine
 	go handleTypingBroadcast()
