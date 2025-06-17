@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sync"
 	"time"
+	"strings"
 
 	"github.com/gorilla/websocket"
 )
