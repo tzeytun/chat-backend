@@ -127,9 +127,11 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				if existingUsername == username {
 					client.SafeWriteJSON(struct {
 						Type    string `json:"type"`
+						Error   string `json:"error"`
 						Content string `json:"content"`
 					}{
 						Type:    "error",
+						Error:   "username_taken",
 						Content: "Bu kullanıcı adı zaten kullanılıyor.",
 					})
 					client.conn.Close()
@@ -152,9 +154,11 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			if exists && now.Sub(lastTime) < time.Second {
 				client.SafeWriteJSON(struct {
 					Type    string `json:"type"`
+					Error   string `json:"error"`
 					Content string `json:"content"`
 				}{
 					Type:    "error",
+					Error:   "cooldown",
 					Content: "Lütfen yavaş yaz, spam algılandı.",
 				})
 				continue
