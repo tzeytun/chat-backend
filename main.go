@@ -124,7 +124,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 		if msgType == "join" {
 			for _, existingUsername := range usernames {
-				if existingUsername == username {
+				if strings.ToLower(existingUsername) == strings.ToLower(username) {
 					client.SafeWriteJSON(struct {
 						Type    string `json:"type"`
 						Error   string `json:"error"`
@@ -138,7 +138,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			usernames[client] = username
+			usernames[client] = strings.ToLower(username)
 			broadcastUserList()
 			continue
 		}
