@@ -102,6 +102,22 @@ username, _ := raw["username"].(string)
 content, _ := raw["content"].(string)
 
 if msgType == "join" {
+
+	// Eğer bu kullanıcı adı zaten kullanılıyorsa istemciye hata mesajı gönder
+	for _, existingUsername := range usernames {
+		if existingUsername == username {
+			ws.WriteJSON(struct {
+				Type    string `json:"type"`
+				Content string `json:"content"`
+			}{
+				Type:    "error",
+				Content: "Bu kullanıcı adı zaten kullanılıyor.",
+			})
+			ws.Close()
+			return
+		}
+	}
+
 	usernames[ws] = username
 	broadcastUserList()
 	continue // bu "join" mesajı broadcast edilmez
@@ -129,7 +145,7 @@ broadcast <- newMessage
 func handleUserListBroadcast() {
 	for {
 		userList := <-userListBroadcast
-		log.Println("Güncellenmiş kullanıcı listesi:", userList) // <--- buraya bak
+		log.Println("Güncellenmiş kullanıcı listesi:", userList) 
 		for client := range clients {
 			err := client.WriteJSON(struct {
 				Type string   `json:"type"`
