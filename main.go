@@ -162,6 +162,9 @@ func handleUserListBroadcast() {
 		userList := <-userListBroadcast
 		log.Println("Güncellenmiş kullanıcı listesi:", userList) 
 		for client := range clients {
+			if client == nil {
+				continue // 💡 null pointer koruması
+			}
 			err := client.WriteJSON(struct {
 				Type string   `json:"type"`
 				Users []string `json:"users"`
@@ -216,7 +219,16 @@ func main() {
 	})
 
 	go handleMessages() // mesaj gönderici goroutine
-	go handleUserListBroadcast() // kullanıcı listesini yöneten goroutine
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Println("Panik engellendi:", r)
+			}
+		}()
+		handleUserListBroadcast()
+	}()
+
 	go handleTypingBroadcast()
 
 
