@@ -184,6 +184,7 @@ func handleUserListBroadcast() {
 
 
 func broadcastUserList() {
+	log.Println("Kullanıcı listesi güncellendi:", usernamesList)
 	usernamesList := []string{}
 	for _, name := range usernames {
 		usernamesList = append(usernamesList, name)
