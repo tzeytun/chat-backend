@@ -25,7 +25,22 @@ var typingBroadcast = make(chan string) // sadece yazan username'i taşır
 
 
 var upgrader = websocket.Upgrader{
-	CheckOrigin: func(r *http.Request) bool { return true },
+	CheckOrigin: func(r *http.Request) bool {
+		origin := r.Header.Get("Origin")
+
+		
+		allowedOrigins := map[string]bool{
+			"http://localhost:3000": true, // Geliştirme ortamı
+			"https://chat-frontend-kappa-nine.vercel.app": true,   
+		}
+
+		if allowedOrigins[origin] {
+			return true
+		}
+
+		log.Printf("Bloklanan origin: %s", origin)
+		return false
+	},
 }
 
 func handleTypingBroadcast() {
