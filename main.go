@@ -128,7 +128,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		broadcastUserList()
 		broadcast <- Message{
 			Type:     "system",
-			Username: username,
+			Username: name,
 			Content:  fmt.Sprintf("%s sohbetten ayrıldı", username),
 			Time:     getCurrentTime(),
 		}
