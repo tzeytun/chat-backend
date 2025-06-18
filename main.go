@@ -139,8 +139,16 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 					return
 				}
 			}
-			usernames[client] = strings.ToLower(username)
+			username = strings.ToLower(username)
+			usernames[client] = username
 			broadcastUserList()
+			broadcast <- Message{
+	Type:     "system",
+	Username: username,
+	Content:  fmt.Sprintf("%s sohbete katıldı", username),
+	Time:     getCurrentTime(),
+}
+		}
 			continue
 		}
 
