@@ -147,10 +147,10 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	Username: username,
 	Content:  fmt.Sprintf("%s sohbete katıldı", username),
 	Time:     getCurrentTime(),
-}
+	}
+	continue
 		}
-		}
-			continue
+			
 		}
 
 		if msgType == "typing" {
