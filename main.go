@@ -4,9 +4,9 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"strings"
 	"sync"
 	"time"
-	"strings"
 
 	"github.com/gorilla/websocket"
 )
@@ -36,12 +36,11 @@ var userListBroadcast = make(chan []string)
 var typingBroadcast = make(chan string)
 var lastMessageTimes = make(map[*Client]time.Time)
 
-
 var upgrader = websocket.Upgrader{
 	CheckOrigin: func(r *http.Request) bool {
 		origin := r.Header.Get("Origin")
 		allowedOrigins := map[string]bool{
-			"http://localhost:3000":                         true,
+			"http://localhost:3000":                      true,
 			"https://chat-frontend-kappa-nine.vercel.app": true,
 		}
 		if allowedOrigins[origin] {
@@ -89,7 +88,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		log.Fatal(err)
 	}
 	client := &Client{conn: ws}
-
 	clients[client] = true
 	log.Println("Yeni istemci bağlandı!")
 
@@ -100,7 +98,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 		delete(clients, client)
 		delete(usernames, client)
-		delete(lastMessageTimes, client) // 🧹 cooldown temizlik
+		delete(lastMessageTimes, client)
 		broadcastUserList()
 		broadcast <- Message{
 			Type:     "system",
@@ -123,7 +121,8 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		username, _ := raw["username"].(string)
 		content, _ := raw["content"].(string)
 
-		if msgType == "join" {
+		switch msgType {
+		case "join":
 			for _, existingUsername := range usernames {
 				if strings.ToLower(existingUsername) == strings.ToLower(username) {
 					client.SafeWriteJSON(struct {
@@ -143,22 +142,16 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			usernames[client] = username
 			broadcastUserList()
 			broadcast <- Message{
-	Type:     "system",
-	Username: username,
-	Content:  fmt.Sprintf("%s sohbete katıldı", username),
-	Time:     getCurrentTime(),
-	}
-	continue
-		}
-			
-		}
+				Type:     "system",
+				Username: username,
+				Content:  fmt.Sprintf("%s sohbete katıldı", username),
+				Time:     getCurrentTime(),
+			}
 
-		if msgType == "typing" {
+		case "typing":
 			typingBroadcast <- username
-			continue
-		}
 
-		if msgType == "message" {
+		case "message":
 			now := time.Now()
 			lastTime, exists := lastMessageTimes[client]
 			if exists && now.Sub(lastTime) < time.Second {
@@ -174,17 +167,15 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			lastMessageTimes[client] = now
-
-			newMessage := Message{
+			broadcast <- Message{
 				Type:     "message",
 				Username: username,
 				Content:  content,
 				Time:     getCurrentTime(),
 			}
-			broadcast <- newMessage
 		}
 	}
-
+}
 
 func handleUserListBroadcast() {
 	for {
