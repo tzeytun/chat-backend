@@ -7,6 +7,7 @@ import (
 	"strings"
 	"sync"
 	"time"
+	"regexp"
 
 	"github.com/gorilla/websocket"
 )
@@ -83,6 +84,13 @@ func getCurrentTime() string {
 }
 
 func handleConnections(w http.ResponseWriter, r *http.Request) {
+
+	defer func() {
+		if r := recover(); r != nil {
+			log.Println("handleConnections panik engellendi:", r)
+		}
+	}()
+
 	ws, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Fatal(err)
@@ -118,33 +126,68 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 		}
 
 		msgType, _ := raw["type"].(string)
-		username, _ := raw["username"].(string)
 		content, _ := raw["content"].(string)
+		username := usernames[client] // sadece backend’in bildiği doğru kullanıcı adı
+
+		
+if username == "" && msgType != "join" {
+	client.SafeWriteJSON(struct {
+		Type    string `json:"type"`
+		Error   string `json:"error"`
+		Content string `json:"content"`
+	}{
+		Type:    "error",
+		Error:   "unauthorized",
+		Content: "Unauthorized!",
+	})
+	client.conn.Close()
+	return
+}
 
 		switch msgType {
 		case "join":
-			for _, existingUsername := range usernames {
-				if strings.ToLower(existingUsername) == strings.ToLower(username) {
-					client.SafeWriteJSON(struct {
-						Type    string `json:"type"`
-						Error   string `json:"error"`
-						Content string `json:"content"`
-					}{
-						Type:    "error",
-						Error:   "username_taken",
-						Content: "Bu kullanıcı adı zaten kullanılıyor.",
-					})
-					client.conn.Close()
-					return
-				}
-			}
-			username = strings.ToLower(username)
-			usernames[client] = username
+			
+	joinUsername, _ := raw["username"].(string)
+
+	joinUsername = strings.TrimSpace(strings.ToLower(joinUsername))
+
+	if joinUsername == "" || len(joinUsername) > 20 || !regexp.MustCompile(`^[a-zA-Z0-9]+$`).MatchString(joinUsername) {
+		client.SafeWriteJSON(struct {
+			Type    string `json:"type"`
+			Error   string `json:"error"`
+			Content string `json:"content"`
+		}{
+			Type:    "error",
+			Error:   "invalid_username",
+			Content: "Geçersiz kullanıcı adı. Sadece harf ve rakam içermeli (max 20 karakter).",
+		})
+		client.conn.Close()
+		return
+	}
+	
+
+	for _, existingUsername := range usernames {
+		if strings.ToLower(existingUsername) == strings.ToLower(joinUsername) {
+			client.SafeWriteJSON(struct {
+				Type    string `json:"type"`
+				Error   string `json:"error"`
+				Content string `json:"content"`
+			}{
+				Type:    "error",
+				Error:   "username_taken",
+				Content: "Bu kullanıcı adı zaten kullanılıyor.",
+			})
+			client.conn.Close()
+			return
+		}
+	}
+			joinUsername = strings.ToLower(joinUsername)
+			usernames[client] = joinUsername
 			broadcastUserList()
 			broadcast <- Message{
 				Type:     "system",
-				Username: username,
-				Content:  fmt.Sprintf("%s sohbete katıldı", username),
+				Username: joinUsername,
+				Content:  fmt.Sprintf("%s sohbete katıldı", joinUsername),
 				Time:     getCurrentTime(),
 			}
 
@@ -152,6 +195,19 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			typingBroadcast <- username
 
 		case "message":
+			if username == "" || content == "" || len(content) > 500 {
+	client.SafeWriteJSON(struct {
+		Type    string `json:"type"`
+		Error   string `json:"error"`
+		Content string `json:"content"`
+	}{
+		Type:    "error",
+		Error:   "invalid_message",
+		Content: "Geçersiz mesaj gönderimi.",
+	})
+	continue
+}
+
 			now := time.Now()
 			lastTime, exists := lastMessageTimes[client]
 			if exists && now.Sub(lastTime) < time.Second {
