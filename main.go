@@ -149,6 +149,7 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 	Time:     getCurrentTime(),
 }
 		}
+		}
 			continue
 		}
 
@@ -183,7 +184,6 @@ func handleConnections(w http.ResponseWriter, r *http.Request) {
 			broadcast <- newMessage
 		}
 	}
-}
 
 
 func handleUserListBroadcast() {
