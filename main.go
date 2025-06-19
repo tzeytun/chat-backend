@@ -1,8 +1,6 @@
 package main
 
 import (
-	"crypto/sha256"
-	"encoding/hex"
 	"fmt"
 	"log"
 	"net/http"
@@ -10,7 +8,6 @@ import (
 	"sync"
 	"time"
 	"regexp"
-	"os"
 
 	"github.com/gorilla/websocket"
 )
@@ -86,21 +83,6 @@ func getCurrentTime() string {
 	return now.Format("15:04")
 }
 
-func verifyAdminAuth(username string, auth string) bool {
-	envVar := ""
-	if username == "admin" {
-		envVar = os.Getenv("ADMIN_HASH")
-	} else if username == "mod" {
-		envVar = os.Getenv("MOD_HASH")
-	} else {
-		return true // diğer kullanıcılar için kontrol yapılmaz
-	}
-
-	hash := sha256.Sum256([]byte(auth))
-	computedHash := hex.EncodeToString(hash[:])
-	return computedHash == envVar
-}
-
 func handleConnections(w http.ResponseWriter, r *http.Request) {
 
 	defer func() {
@@ -166,7 +148,6 @@ if username == "" && msgType != "join" {
 		case "join":
 			
 	joinUsername, _ := raw["username"].(string)
-	auth, _ := raw["auth"].(string)
 
 	joinUsername = strings.TrimSpace(strings.ToLower(joinUsername))
 
@@ -179,20 +160,6 @@ if username == "" && msgType != "join" {
 			Type:    "error",
 			Error:   "invalid_username",
 			Content: "Geçersiz kullanıcı adı. Sadece harf ve rakam içermeli (max 20 karakter).",
-		})
-		client.conn.Close()
-		return
-	}
-
-	if (joinUsername == "admin" || joinUsername == "mod") && !verifyAdminAuth(joinUsername, auth) {
-		client.SafeWriteJSON(struct {
-			Type    string `json:"type"`
-			Error   string `json:"error"`
-			Content string `json:"content"`
-		}{
-			Type:    "error",
-			Error:   "unauthorized",
-			Content: "Yetkisiz giriş.",
 		})
 		client.conn.Close()
 		return
