@@ -1,0 +1,34 @@
+name: Go CI
+
+on:
+  push:
+    branches: [ main ]
+  pull_request:
+    branches: [ main ]
+
+jobs:
+  build-and-test:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Kodu klonla
+        uses: actions/checkout@v3
+
+      - name: Go ortamını kur
+        uses: actions/setup-go@v4
+        with:
+          go-version: 1.24.4
+
+      - name: Bağımlılıkları yükle
+        run: go mod tidy
+
+      - name: Projeyi derle
+        run: go build -v ./...
+
+      - name: Testleri çalıştır
+        run: |
+          if ls *_test.go internal/*_test.go > /dev/null 2>&1; then
+            go test ./...
+          else
+            echo "Test dosyası bulunamadı, test atlandı."
+          fi
