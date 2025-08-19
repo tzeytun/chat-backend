@@ -23,7 +23,7 @@ var Upgrader = websocket.Upgrader{
 		origin := r.Header.Get("Origin")
 		allowedOrigins := map[string]bool{
 			"http://localhost:3000": true,
-			"https://chat-frontend-kappa-nine.vercel.app": true,
+			"https://chatinyo-tr1-1950.vercel.app": true,
 		}
 		if allowedOrigins[origin] {
 			return true
