@@ -33,17 +33,73 @@ var Upgrader = websocket.Upgrader{
 	},
 }
 
+var accessLogger *log.Logger
+
+func init() {
+    if p := os.Getenv("ACCESS_LOG_PATH"); p != "" {
+        f, err := os.OpenFile(p, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0o644)
+        if err != nil {
+            log.Printf("access log open error: %v", err)
+        } else {
+           
+            accessLogger = log.New(f, "", 0)
+        }
+    }
+}
+
+func clientIP(r *http.Request) string {
+    if xff := r.Header.Get("X-Forwarded-For"); xff != "" {
+        parts := strings.Split(xff, ",")
+        if len(parts) > 0 {
+            ip := strings.TrimSpace(parts[0])
+            if net.ParseIP(ip) != nil {
+                return ip
+            }
+        }
+    }
+    // 2) X-Real-IP
+    if xrip := r.Header.Get("X-Real-IP"); xrip != "" && net.ParseIP(xrip) != nil {
+        return xrip
+    }
+    
+    host, _, err := net.SplitHostPort(r.RemoteAddr)
+    if err == nil && net.ParseIP(host) != nil {
+        return host
+    }
+    return r.RemoteAddr
+}
+
+func logAccess(event, ip, username, origin, ua string) {
+    ts := time.Now().UTC().Format(time.RFC3339)
+    line := fmt.Sprintf(`{"ts":"%s","event":"%s","ip":"%s","username":%q,"origin":%q,"ua":%q}`, ts, event, ip, username, origin, ua)
+
+   
+    log.Println("[ACCESS]", line)
+
+    if accessLogger != nil {
+        accessLogger.Println(line)
+    }
+}
+
+
 func HandleConnections(w http.ResponseWriter, r *http.Request) {
+
+	ip := clientIP(r)
+
 	ws, err := Upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		log.Println("Upgrade hatası:", err)
 		return
 	}
+
+	logAccess("connect", ip, "", r.Header.Get("Origin"), r.UserAgent())
+
 	client := &Client{Conn: ws}
 	Clients[client] = true
 	log.Println("Yeni istemci bağlandı!")
 
 	defer func() {
+		 logAccess("disconnect", ip, "", r.Header.Get("Origin"), r.UserAgent())
 		name := Usernames[client]
 		delete(Clients, client)
 		delete(Usernames, client)
@@ -105,6 +161,7 @@ func HandleConnections(w http.ResponseWriter, r *http.Request) {
 				}
 			}
 			Usernames[client] = joinUsername
+			logAccess("join", ip, joinUsername, r.Header.Get("Origin"), r.UserAgent())
 			BroadcastUserList()
 			Broadcast <- Message{
 				Type:     "system",
